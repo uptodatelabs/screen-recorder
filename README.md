@@ -4,11 +4,16 @@ A screen recorder specialized for gamers, focused on capturing highlight moments
 
 ## Features
 
-- **Buffer-based highlight saving**: Automatically saves the last 5 minutes of gameplay when you press a hotkey
+- **Buffer-based highlight saving**: Keep the last N seconds of gameplay in memory and save it as an MP4 clip with a single hotkey press
 - **Game process detection**: Automatically detects running games
-- **Customizable hotkeys**: Configure your own shortcuts
-- **Hardware-accelerated encoding**: Support for NVIDIA NVENC for minimal performance impact
-- **Simple UI**: Minimal overlay that doesn't interfere with gameplay
+- **Customizable hotkeys**: Configure your own shortcuts (e.g. `f12`, `ctrl+shift+f12`)
+- **Low performance impact**: JPEG-compressed in-memory buffering keeps memory usage low
+- **CLI-first**: Simple, scriptable command line interface
+
+## Requirements
+
+- Windows (screen capture is currently tested on Windows)
+- Python 3.10+
 
 ## Installation
 
@@ -24,31 +29,35 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-# Run the recorder
-python -m screen_recorder.src.main
-
-# Or run directly
-python main.py
+# Run the recorder (from the repository root)
+python src/main.py
 ```
 
 ### Basic Workflow
 
 1. Launch the recorder
-2. Start your game
-3. Press **F12** (default hotkey) to save the last 5 minutes of gameplay
-4. Find your recorded clip in the `clips/` directory
+2. Play your game
+3. Press **F12** (default hotkey) to save the last 30 seconds of gameplay
+4. Find your clip in the `clips/` directory (e.g. `clips/highlight_20260820_184421.mp4`)
+5. Press **Ctrl+C** to stop the recorder
 
 ## Configuration
 
-You can customize the hotkey and buffer time by running with arguments:
-
 ```bash
-python main.py --hotkey "<f12>" --buffer-time 300 --fps 60
+# Custom hotkey, buffer time, frame rate, and output directory
+python src/main.py --hotkey "ctrl+shift+f12" --buffer-time 60 --fps 30 --output my_clips
 ```
+
+| Option          | Description                                          | Default |
+|-----------------|------------------------------------------------------|---------|
+| `--hotkey`      | Hotkey that saves the highlight clip                 | `f12`   |
+| `--buffer-time` | Seconds of gameplay kept in the buffer               | `30`    |
+| `--fps`         | Capture frame rate (10-60 recommended)               | `30`    |
+| `--output`      | Directory where clips are saved                      | `clips` |
 
 ## Supported Games
 
-The recorder automatically detects popular games including:
+The recorder can auto-detect popular games (list shown when the game is running):
 - Valorant
 - League of Legends
 - Counter-Strike 2
@@ -64,30 +73,60 @@ The recorder automatically detects popular games including:
 # Run tests
 pytest
 
-# Format code
-black src/
-
-# Lint
-flake8 src/
+# Run tests with coverage
+pytest --cov=src
 ```
+
+## Project Structure
+
+```
+screen-recorder/
+├── src/
+│   ├── main.py                 # CLI entry point
+│   └── screen_recorder/
+│       ├── capture.py          # Screen capture (mss)
+│       ├── buffer.py           # Circular highlight buffer (JPEG)
+│       ├── hotkey.py           # Global hotkey handling (pynput)
+│       ├── game_detector.py    # Game process detection (psutil)
+│       └── recorder.py         # Main recorder orchestrator
+├── tests/
+│   └── test_screen_recorder.py # Unit tests
+├── clips/                      # Saved highlight clips (created at runtime)
+└── requirements.txt
+```
+
+## Roadmap
+
+- [x] Buffer-based highlight saving (MVP)
+- [x] Global hotkey support
+- [ ] Hardware-accelerated encoding (NVENC / AMF / QSV)
+- [ ] Audio recording (system + microphone mixing)
+- [ ] Game-specific profiles
+- [ ] Clip management UI
+- [ ] Direct sharing (Twitch / YouTube / Discord)
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 # 게임 레코더
 
-게이머를 위한 화면 캡처 프로그램에 특화된 프로젝트입니다. 주요 하이라이트 순간을 캡처하는 데 중점을 둡니다.
+게이머를 위한 화면 캡처 프로그램입니다. 게임 플레이의 하이라이트 순간을 놓치지 않고 저장하는 데 중점을 둡니다.
 
 ## 기능
 
-- **버퍼 기반 하이라이트 저장**: 핫키를 누르면 마지막 5분간 게임 플레이를 자동 저장
+- **버퍼 기반 하이라이트 저장**: 지난 N초의 게임 화면을 메모리에 보관했다가 핫키 한 번으로 MP4 클립으로 저장
 - **게임 프로세스 자동 감지**: 실행 중인 게임을 자동으로 감지
-- **사용자 정의 핫키**: 사용자 지정 단축키 설정 가능
-- **하드웨어 가속 인코딩**: NVIDIA NVENC 지원으로 minimal 성능 영향
-- **간단한 UI**: 게임 플레이에 방해가 되지 않는 최소 오버레이
+- **사용자 정의 핫키**: 단축키 직접 설정 (예: `f12`, `ctrl+shift+f12`)
+- **낮은 성능 영향**: JPEG 압축 메모리 버퍼링으로 메모리 사용량 최소화
+- **CLI 우선**: 간단하고 스크립트로 자동화 가능한 커맨드라인 인터페이스
+
+## 요구 사항
+
+- Windows (현재 Windows에서 테스트됨)
+- Python 3.10 이상
 
 ## 설치
 
@@ -103,38 +142,42 @@ pip install -r requirements.txt
 ## 사용법
 
 ```bash
-# 레코더 실행
-python -m screen_recorder.src.main
-
-# 또는 직접 실행
-python main.py
+# 레코더 실행 (저장소 루트에서)
+python src/main.py
 ```
 
-### 기본 워크플로우
+### 기본 사용 흐름
 
 1. 레코더를 실행합니다
-2. 게임을 실행합니다
-3. 기본 핫키 **F12**를 눌러 지난 5분의 게임 플레이를 저장합니다
-4. 기록된 클립은 `clips/` 디렉토리에서 확인할 수 있습니다
+2. 게임을 플레이합니다
+3. 기본 핫키 **F12**를 눌러 지난 30초의 게임 플레이를 저장합니다
+4. `clips/` 디렉토리에서 클립을 확인합니다 (예: `clips/highlight_20260820_184421.mp4`)
+5. **Ctrl+C**를 눌러 레코더를 종료합니다
 
 ## 설정
 
-인수를 사용하여 핫키와 버퍼 시간을 사용자 정의할 수 있습니다:
-
 ```bash
-python main.py --hotkey "<f12>" --buffer-time 300 --fps 60
+# 핫키, 버퍼 시간, 프레임 레이트, 출력 폴더 변경
+python src/main.py --hotkey "ctrl+shift+f12" --buffer-time 60 --fps 30 --output my_clips
 ```
+
+| 옵션            | 설명                                          | 기본값  |
+|-----------------|-----------------------------------------------|---------|
+| `--hotkey`      | 하이라이트 클립을 저장하는 단축키             | `f12`   |
+| `--buffer-time` | 버퍼에 보관할 게임 플레이 시간(초)            | `30`    |
+| `--fps`         | 캡처 프레임 레이트 (10-60 권장)               | `30`    |
+| `--output`      | 클립이 저장되는 폴더                          | `clips` |
 
 ## 지원 게임
 
-자동 감지되는 인기 게임:
+인기 게임을 자동 감지할 수 있습니다 (게임 실행 시 목록 확인 가능):
 - 발로란트
 - 리그 오브 레전드
 - 카운터스트라이크 2
 - 도타 2
 - 오버워치
 - 포트나이트
-- 에픽 레전드
+- 에이펙스 레전드
 - 마인크래프트
 
 ## 개발
@@ -143,13 +186,38 @@ python main.py --hotkey "<f12>" --buffer-time 300 --fps 60
 # 테스트 실행
 pytest
 
-# 코드 포맷팅
-black src/
-
-# 린트
-flake8 src/
+# 커버리지 포함 테스트
+pytest --cov=src
 ```
+
+## 프로젝트 구조
+
+```
+screen-recorder/
+├── src/
+│   ├── main.py                 # CLI 진입점
+│   └── screen_recorder/
+│       ├── capture.py          # 화면 캡처 (mss)
+│       ├── buffer.py           # 순환 하이라이트 버퍼 (JPEG)
+│       ├── hotkey.py           # 전역 단축키 처리 (pynput)
+│       ├── game_detector.py    # 게임 프로세스 감지 (psutil)
+│       └── recorder.py         # 메인 레코더 오케스트레이터
+├── tests/
+│   └── test_screen_recorder.py # 단위 테스트
+├── clips/                      # 저장된 하이라이트 클립 (실행 시 생성)
+└── requirements.txt
+```
+
+## 로드맵
+
+- [x] 버퍼 기반 하이라이트 저장 (MVP)
+- [x] 전역 단축키 지원
+- [ ] 하드웨어 가속 인코딩 (NVENC / AMF / QSV)
+- [ ] 오디오 녹음 (시스템 + 마이크 믹싱)
+- [ ] 게임별 프로파일
+- [ ] 클립 관리 UI
+- [ ] 직접 공유 (트위치 / 유튜브 / 디스코드)
 
 ## 라이선스
 
-본 프로젝트는 MIT 라이선스하에 배포됩니다. 자세한 내용은 LICENSE 파일을 참조하세요.
+본 프로젝트는 MIT 라이선스하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
