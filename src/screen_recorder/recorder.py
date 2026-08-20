@@ -1,6 +1,7 @@
 """Main recorder module that ties together capture, buffer, and hotkeys."""
 import os
 import queue
+import sys
 import threading
 import time
 from datetime import datetime
@@ -49,10 +50,14 @@ class GameRecorder:
         self.is_recording = False
         self.save_callback: Optional[Callable] = None
         self.save_started_callback: Optional[Callable] = None
+        self.save_progress_callback: Optional[Callable] = None
         # Captured frames are handed to a worker thread for JPEG encoding so
         # the slow encode overlaps with the next screen grab.
         self._encode_queue: queue.Queue = queue.Queue(maxsize=2)
         self._encoder_thread: Optional[threading.Thread] = None
+        # In-flight highlight saver threads, joined on stop() so clips are
+        # never lost when the app exits right after a hotkey press.
+        self._saver_threads: list = []
 
     def set_save_callback(self, callback: Callable) -> None:
         """Set a callback ``callback(clip_path, frame_count)`` for saved clips."""
@@ -61,6 +66,10 @@ class GameRecorder:
     def set_save_started_callback(self, callback: Callable) -> None:
         """Set a callback called the moment a highlight save is triggered."""
         self.save_started_callback = callback
+
+    def set_save_progress_callback(self, callback: Callable) -> None:
+        """Set a callback ``callback(frames_done, total_frames)`` for progress."""
+        self.save_progress_callback = callback
 
     def start(self) -> None:
         """Start the recorder: begin buffering and register the hotkey."""
@@ -87,6 +96,11 @@ class GameRecorder:
             self._encoder_thread.join(timeout=2.0)
             self._encoder_thread = None
         self.capture.close()
+        # Wait for in-flight highlight saves so the last clip is not lost
+        # when the app exits (saver threads are daemon threads).
+        for t in self._saver_threads:
+            if t.is_alive():
+                t.join()
 
     def capture_frame(self) -> None:
         """Capture one frame and queue it for encoding into the buffer."""
@@ -137,38 +151,49 @@ class GameRecorder:
             name="clip-saver",
             daemon=True,
         )
+        self._saver_threads.append(saver)
         saver.start()
 
     def _save_clip_async(self, encoded_frames: list, fps: int, duration: float) -> None:
-        """Decode buffered frames and write the highlight clip in the background."""
-        frames = [
-            cv2.imdecode(enc, cv2.IMREAD_COLOR) for enc in encoded_frames
-        ]
-        clip_path = self._write_clip(frames, fps)
-        if self.save_callback is not None:
-            self.save_callback(clip_path, len(frames), duration, fps)
+        """Decode buffered frames and write the highlight clip in the background.
 
-    def _write_clip(self, frames: list, fps: int) -> str:
-        """Write the given BGR frames to an MP4 file and return its path."""
-        os.makedirs(self.output_dir, exist_ok=True)
-        height, width = frames[0].shape[:2]
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        clip_path = os.path.join(self.output_dir, f"highlight_{timestamp}.mp4")
-
-        writer = cv2.VideoWriter(
-            clip_path,
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            fps,
-            (width, height),
-        )
-        if not writer.isOpened():
-            raise RuntimeError(f"Could not open video writer for {clip_path}")
+        Frames are decoded and written one at a time so memory stays low
+        even for large buffers (decoding everything at once would need
+        tens of gigabytes for a full 30s buffer).
+        """
         try:
-            for frame in frames:
-                writer.write(frame)
-        finally:
-            writer.release()
-        return clip_path
+            os.makedirs(self.output_dir, exist_ok=True)
+            first = cv2.imdecode(encoded_frames[0], cv2.IMREAD_COLOR)
+            height, width = first.shape[:2]
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            clip_path = os.path.join(
+                self.output_dir, f"highlight_{timestamp}.mp4"
+            )
+            writer = cv2.VideoWriter(
+                clip_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                fps,
+                (width, height),
+            )
+            if not writer.isOpened():
+                raise RuntimeError(f"Could not open video writer for {clip_path}")
+            try:
+                writer.write(first)
+                total = len(encoded_frames)
+                for i, enc in enumerate(encoded_frames[1:], start=2):
+                    writer.write(cv2.imdecode(enc, cv2.IMREAD_COLOR))
+                    if (
+                        self.save_progress_callback is not None
+                        and i % 20 == 0
+                    ):
+                        self.save_progress_callback(i, total)
+            finally:
+                writer.release()
+        except Exception as e:
+            print(f"ERROR: failed to save highlight: {e}", file=sys.stderr)
+            return
+        if self.save_callback is not None:
+            self.save_callback(clip_path, len(encoded_frames), duration, fps)
 
     def get_status(self) -> dict:
         """Return the current recorder status."""
