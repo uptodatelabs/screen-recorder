@@ -18,7 +18,6 @@ else:
     user32 = None
     gdi32 = None
 
-CURSOR_SHOWING = 0x00000001
 DIB_RGB_COLORS = 0
 BI_RGB = 0
 
@@ -158,8 +157,9 @@ def draw_cursor(frame_rgb: np.ndarray, origin_left: int = 0, origin_top: int = 0
     ci.cbSize = ctypes.sizeof(CURSORINFO)
     if not user32.GetCursorInfo(ctypes.byref(ci)):
         return
-    if not (ci.flags & CURSOR_SHOWING):
-        return
+    # Note: Windows hides the hardware cursor while it is moving fast
+    # (CURSOR_SHOWING flag unset), but we still draw it so recordings
+    # never lose the cursor during fast mouse movement.
 
     icon = ICONINFO()
     if not user32.GetIconInfo(ci.hCursor, ctypes.byref(icon)):
