@@ -20,6 +20,7 @@ class GameRecorder:
         fps: int = 30,
         hotkey: str = "f12",
         output_dir: str = "clips",
+        capture_cursor: bool = True,
     ):
         """
         Initialize the game recorder.
@@ -29,12 +30,14 @@ class GameRecorder:
             fps: Frames per second for capture and saved clips.
             hotkey: Global hotkey spec that saves the highlight.
             output_dir: Directory where highlight clips are written.
+            capture_cursor: Whether to overlay the mouse cursor on frames.
         """
         self.hotkey = hotkey
         self.output_dir = output_dir
         self.fps = fps
         self.buffer_seconds = buffer_seconds
-        self.capture = ScreenCapture()
+        self.capture_cursor = capture_cursor
+        self.capture = ScreenCapture(capture_cursor=capture_cursor)
         self.buffer = HighlightBuffer(seconds=buffer_seconds, fps=fps)
         self.hotkey_mgr = HotkeyManager()
         self.is_recording = False

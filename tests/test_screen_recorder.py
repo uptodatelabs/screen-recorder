@@ -11,6 +11,7 @@ import pytest
 from screen_recorder.buffer import HighlightBuffer
 from screen_recorder.hotkey import HotkeyManager
 from screen_recorder.game_detector import GameDetector
+from screen_recorder.cursor import _blend_into
 
 
 def make_frame(value: int = 0, size: int = 64) -> np.ndarray:
@@ -122,3 +123,31 @@ class TestGameDetector:
         detector = GameDetector()
         pid = detector.get_game_pid("definitely_not_a_real_game_xyz")
         assert pid is None
+
+
+class TestCursorBlend:
+    def test_blend_draws_into_frame(self):
+        frame = np.full((100, 100, 3), 12, dtype=np.uint8)
+        rgba = np.zeros((32, 32, 4), dtype=np.uint8)
+        rgba[5:25, 5:25, :3] = 255
+        rgba[5:25, 5:25, 3] = 255
+        _blend_into(frame, rgba, 40, 40)
+        colors = set(map(tuple, frame[40:70, 40:70].reshape(-1, 3)))
+        assert (255, 255, 255) in colors
+        assert (12, 12, 12) in colors
+
+    def test_blend_clips_outside_frame(self):
+        frame = np.full((50, 50, 3), 12, dtype=np.uint8)
+        rgba = np.zeros((32, 32, 4), dtype=np.uint8)
+        rgba[:, :, 3] = 255
+        rgba[:, :, :3] = 255
+        _blend_into(frame, rgba, 100, 100)
+        assert set(map(tuple, frame.reshape(-1, 3))) == {(12, 12, 12)}
+
+    def test_blend_partial_overlap(self):
+        frame = np.full((50, 50, 3), 12, dtype=np.uint8)
+        rgba = np.zeros((32, 32, 4), dtype=np.uint8)
+        rgba[:, :, 3] = 255
+        rgba[:, :, :3] = 255
+        _blend_into(frame, rgba, 40, 40)
+        assert (255, 255, 255) in set(map(tuple, frame.reshape(-1, 3)))

@@ -36,6 +36,11 @@ def main() -> None:
         default="clips",
         help="Directory where highlight clips are saved (default: clips)",
     )
+    parser.add_argument(
+        "--no-cursor",
+        action="store_true",
+        help="Do not overlay the mouse cursor on captured frames",
+    )
 
     args = parser.parse_args()
 
@@ -46,6 +51,7 @@ def main() -> None:
     print(f"Buffer time  : {args.buffer_time} seconds")
     print(f"FPS          : {args.fps}")
     print(f"Output dir   : {args.output}")
+    print(f"Cursor       : {'off' if args.no_cursor else 'on'}")
     print("=" * 50)
     print("Starting recorder...")
     print(f"Press {args.hotkey} to save the last {args.buffer_time} seconds of gameplay")
@@ -57,6 +63,7 @@ def main() -> None:
         fps=args.fps,
         hotkey=args.hotkey,
         output_dir=args.output,
+        capture_cursor=not args.no_cursor,
     )
 
     def on_save(clip_path: str, frame_count: int, duration: float, fps: int) -> None:
