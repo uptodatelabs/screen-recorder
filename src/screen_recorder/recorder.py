@@ -1,5 +1,7 @@
 """Main recorder module that ties together capture, buffer, and hotkeys."""
 import os
+import queue
+import threading
 import time
 from datetime import datetime
 from typing import Callable, Optional
@@ -21,6 +23,7 @@ class GameRecorder:
         hotkey: str = "f12",
         output_dir: str = "clips",
         capture_cursor: bool = True,
+        scale: float = 1.0,
     ):
         """
         Initialize the game recorder.
@@ -31,18 +34,24 @@ class GameRecorder:
             hotkey: Global hotkey spec that saves the highlight.
             output_dir: Directory where highlight clips are written.
             capture_cursor: Whether to overlay the mouse cursor on frames.
+            scale: Frame scale factor (0.1-1.0). Lower = higher fps,
+                lower resolution.
         """
         self.hotkey = hotkey
         self.output_dir = output_dir
         self.fps = fps
         self.buffer_seconds = buffer_seconds
         self.capture_cursor = capture_cursor
-        self.capture = ScreenCapture(capture_cursor=capture_cursor)
+        self.scale = scale
+        self.capture = ScreenCapture(capture_cursor=capture_cursor, scale=scale)
         self.buffer = HighlightBuffer(seconds=buffer_seconds, fps=fps)
         self.hotkey_mgr = HotkeyManager()
         self.is_recording = False
         self.save_callback: Optional[Callable] = None
-        self._frame_interval = 1.0 / fps
+        # Captured frames are handed to a worker thread for JPEG encoding so
+        # the slow encode overlaps with the next screen grab.
+        self._encode_queue: queue.Queue = queue.Queue(maxsize=2)
+        self._encoder_thread: Optional[threading.Thread] = None
 
     def set_save_callback(self, callback: Callable) -> None:
         """Set a callback ``callback(clip_path, frame_count)`` for saved clips."""
@@ -52,6 +61,10 @@ class GameRecorder:
         """Start the recorder: begin buffering and register the hotkey."""
         self.is_recording = True
         self.buffer.start_recording()
+        self._encoder_thread = threading.Thread(
+            target=self._encode_worker, name="jpeg-encoder", daemon=True
+        )
+        self._encoder_thread.start()
         self.hotkey_mgr.register(self.hotkey, self._on_hotkey_press)
         self.hotkey_mgr.start_listening()
 
@@ -60,13 +73,37 @@ class GameRecorder:
         self.is_recording = False
         self.buffer.stop_recording()
         self.hotkey_mgr.stop_listening()
+        # Signal the encoder thread and wait for it to drain.
+        if self._encoder_thread is not None:
+            try:
+                self._encode_queue.put_nowait((None, None))
+            except queue.Full:
+                pass
+            self._encoder_thread.join(timeout=2.0)
+            self._encoder_thread = None
+        self.capture.close()
 
     def capture_frame(self) -> None:
-        """Capture one frame and feed it into the highlight buffer."""
+        """Capture one frame and queue it for encoding into the buffer."""
         if not self.is_recording:
             return
         frame = self.capture.capture()
-        self.buffer.add_frame(frame)
+        if frame is None:
+            return  # backend not ready yet, skip this tick
+        self._encode_queue.put((frame, time.monotonic()))
+
+    def _encode_worker(self) -> None:
+        """Consume captured frames, JPEG-encode, and store into the buffer."""
+        while True:
+            try:
+                frame, timestamp = self._encode_queue.get(timeout=0.2)
+            except queue.Empty:
+                if not self.is_recording:
+                    return
+                continue
+            if frame is None:
+                return
+            self.buffer.add_frame(frame, timestamp)
 
     def _on_hotkey_press(self) -> None:
         """Handle hotkey press: save the buffered highlight as a video clip."""

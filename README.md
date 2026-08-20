@@ -7,6 +7,8 @@ A screen recorder specialized for gamers, focused on capturing highlight moments
 - **Buffer-based highlight saving**: Keep the last N seconds of gameplay in memory and save it as an MP4 clip with a single hotkey press
 - **Game process detection**: Automatically detects running games
 - **Customizable hotkeys**: Configure your own shortcuts (e.g. `f12`, `ctrl+shift+f12`)
+- **High performance capture**: DXGI Desktop Duplication (via dxcam) captures at monitor refresh rate on animated screens, with a threaded encoder so grabs and encodes overlap
+- **Mouse cursor overlay**: The cursor is drawn onto each frame (screen capture APIs don't include it)
 - **Low performance impact**: JPEG-compressed in-memory buffering keeps memory usage low
 - **CLI-first**: Simple, scriptable command line interface
 
@@ -54,6 +56,15 @@ python src/main.py --hotkey "ctrl+shift+f12" --buffer-time 60 --fps 30 --output 
 | `--buffer-time` | Seconds of gameplay kept in the buffer               | `30`    |
 | `--fps`         | Capture frame rate (10-60 recommended)               | `30`    |
 | `--output`      | Directory where clips are saved                      | `clips` |
+| `--no-cursor`   | Do not overlay the mouse cursor on frames            | off     |
+| `--scale`       | Frame scale factor, e.g. 0.5 = half resolution       | `1.0`   |
+
+> **Note on frame rate**: Capture uses the DXGI Desktop Duplication API by
+> default (falling back to GDI BitBlt via mss on unsupported systems). On
+> animated screens (games), frames are delivered at your monitor's refresh
+> rate; the encoder runs in a separate thread so screen grabs are never
+> blocked by encoding. Clips are saved at the measured capture rate, so the
+> video length always matches the real seconds of gameplay.
 
 ## Supported Games
 
@@ -84,9 +95,10 @@ screen-recorder/
 ├── src/
 │   ├── main.py                 # CLI entry point
 │   └── screen_recorder/
-│       ├── capture.py          # Screen capture (mss)
+│       ├── capture.py          # Screen capture (dxcam DXGI + mss fallback)
 │       ├── buffer.py           # Circular highlight buffer (JPEG)
 │       ├── hotkey.py           # Global hotkey handling (pynput)
+│       ├── cursor.py           # Mouse cursor capture + overlay (GDI)
 │       ├── game_detector.py    # Game process detection (psutil)
 │       └── recorder.py         # Main recorder orchestrator
 ├── tests/
@@ -99,6 +111,7 @@ screen-recorder/
 
 - [x] Buffer-based highlight saving (MVP)
 - [x] Global hotkey support
+- [x] High-performance capture (DXGI Desktop Duplication)
 - [ ] Hardware-accelerated encoding (NVENC / AMF / QSV)
 - [ ] Audio recording (system + microphone mixing)
 - [ ] Game-specific profiles
@@ -120,6 +133,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **버퍼 기반 하이라이트 저장**: 지난 N초의 게임 화면을 메모리에 보관했다가 핫키 한 번으로 MP4 클립으로 저장
 - **게임 프로세스 자동 감지**: 실행 중인 게임을 자동으로 감지
 - **사용자 정의 핫키**: 단축키 직접 설정 (예: `f12`, `ctrl+shift+f12`)
+- **고성능 캡처**: DXGI 데스크톱 중복(DXGI Desktop Duplication, dxcam)으로 화면이 움직일 때 모니터 주사율만큼 캡처, 스레드 인코더로 캡처와 인코딩을 동시 처리
+- **마우스 커서 오버레이**: 캡처 API에 포함되지 않는 커서를 각 프레임에 직접 그림
 - **낮은 성능 영향**: JPEG 압축 메모리 버퍼링으로 메모리 사용량 최소화
 - **CLI 우선**: 간단하고 스크립트로 자동화 가능한 커맨드라인 인터페이스
 
@@ -167,6 +182,14 @@ python src/main.py --hotkey "ctrl+shift+f12" --buffer-time 60 --fps 30 --output 
 | `--buffer-time` | 버퍼에 보관할 게임 플레이 시간(초)            | `30`    |
 | `--fps`         | 캡처 프레임 레이트 (10-60 권장)               | `30`    |
 | `--output`      | 클립이 저장되는 폴더                          | `clips` |
+| `--no-cursor`   | 프레임에 마우스 커서를 그리지 않음            | off     |
+| `--scale`       | 프레임 배율 (예: 0.5 = 절반 해상도)           | `1.0`   |
+
+> **프레임 레이트 참고**: 캡처는 기본적으로 DXGI 데스크톱 중복 API를 사용합니다
+> (지원되지 않는 시스템에서는 mss/GDI로 자동 대체). 게임처럼 화면이 계속
+> 움직이면 모니터 주사율만큼 프레임이 전달되며, 인코더가 별도 스레드에서
+> 실행되어 캡처가 인코딩에 막히지 않습니다. 클립은 측정된 캡처 속도로 저장되어
+> 영상 길이가 항상 실제 게임 플레이 시간과 일치합니다.
 
 ## 지원 게임
 
@@ -197,9 +220,10 @@ screen-recorder/
 ├── src/
 │   ├── main.py                 # CLI 진입점
 │   └── screen_recorder/
-│       ├── capture.py          # 화면 캡처 (mss)
+│       ├── capture.py          # 화면 캡처 (dxcam DXGI + mss 대체)
 │       ├── buffer.py           # 순환 하이라이트 버퍼 (JPEG)
 │       ├── hotkey.py           # 전역 단축키 처리 (pynput)
+│       ├── cursor.py           # 마우스 커서 캡처 + 오버레이 (GDI)
 │       ├── game_detector.py    # 게임 프로세스 감지 (psutil)
 │       └── recorder.py         # 메인 레코더 오케스트레이터
 ├── tests/
@@ -212,6 +236,7 @@ screen-recorder/
 
 - [x] 버퍼 기반 하이라이트 저장 (MVP)
 - [x] 전역 단축키 지원
+- [x] 고성능 캡처 (DXGI 데스크톱 중복)
 - [ ] 하드웨어 가속 인코딩 (NVENC / AMF / QSV)
 - [ ] 오디오 녹음 (시스템 + 마이크 믹싱)
 - [ ] 게임별 프로파일

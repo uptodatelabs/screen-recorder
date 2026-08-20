@@ -2,7 +2,6 @@
 import argparse
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -41,6 +40,12 @@ def main() -> None:
         action="store_true",
         help="Do not overlay the mouse cursor on captured frames",
     )
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=1.0,
+        help="Capture scale factor for higher fps (0.5 = half resolution, default: 1.0)",
+    )
 
     args = parser.parse_args()
 
@@ -52,6 +57,7 @@ def main() -> None:
     print(f"FPS          : {args.fps}")
     print(f"Output dir   : {args.output}")
     print(f"Cursor       : {'off' if args.no_cursor else 'on'}")
+    print(f"Scale        : {args.scale:.0%}")
     print("=" * 50)
     print("Starting recorder...")
     print(f"Press {args.hotkey} to save the last {args.buffer_time} seconds of gameplay")
@@ -64,6 +70,7 @@ def main() -> None:
         hotkey=args.hotkey,
         output_dir=args.output,
         capture_cursor=not args.no_cursor,
+        scale=args.scale,
     )
 
     def on_save(clip_path: str, frame_count: int, duration: float, fps: int) -> None:
@@ -73,16 +80,11 @@ def main() -> None:
     recorder.set_save_callback(on_save)
     recorder.start()
 
-    interval = 1.0 / args.fps
     try:
+        # The encoder queue's backpressure paces capture automatically;
+        # sleep would only stack on top of the grab time.
         while recorder.is_recording:
-            loop_start = time.perf_counter()
             recorder.capture_frame()
-            # Sleep only the remaining time in the frame budget so the
-            # capture duration does not stack on top of the sleep.
-            elapsed = time.perf_counter() - loop_start
-            if elapsed < interval:
-                time.sleep(interval - elapsed)
     except KeyboardInterrupt:
         print("\nStopping recorder...")
     finally:

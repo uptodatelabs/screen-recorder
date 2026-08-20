@@ -3,3 +3,4 @@ numpy>=1.24.0
 psutil>=5.9.0
 pynput>=1.7.0
 opencv-python>=4.8.0
+dxcam>=0.0.5
