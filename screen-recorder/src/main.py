@@ -1,7 +1,16 @@
 """Main entry point for the Game Recorder application."""
 import sys
 import argparse
-from screen_recorder.src.screen_recorder import GameRecorder
+import os
+
+# Add src directory to path so we can import screen_recorder package
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+
+from screen_recorder.capture import ScreenCapture
+from screen_recorder.buffer import HighlightBuffer
+from screen_recorder.game_detector import GameDetector
+from screen_recorder.hotkey import HotkeyManager
+from screen_recorder.recorder import GameRecorder
 
 
 def main():
@@ -65,6 +74,7 @@ def main():
             if frame is not None:
                 # Frame captured successfully (for stats display)
                 pass
+            import time
             time.sleep(1.0 / args.fps)
     except KeyboardInterrupt:
         print("\nStopping recorder...")

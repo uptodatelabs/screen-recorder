@@ -1,7 +1,7 @@
 """Circular buffer for game highlight recording."""
 import asyncio
 from collections import deque
-from typing import Optional, Callable
+from typing import Optional, Callable, Tuple
 import numpy as np
 
 

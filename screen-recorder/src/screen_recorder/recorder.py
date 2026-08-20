@@ -24,6 +24,7 @@ class GameRecorder:
             fps: Frames per second for recording
             hotkey: Hotkey to trigger highlight save
         """
+        self.hotkey = hotkey
         self.capture = ScreenCapture()
         self.buffer = HighlightBuffer(capacity_frames=buffer_capacity, fps=fps)
         self.hotkey_mgr = HotkeyManager()
@@ -43,7 +44,7 @@ class GameRecorder:
         self.buffer.start_recording()
         
         # Register hotkey
-        self.hotkey_mgr.register(hotkey, self._on_hotkey_press)
+        self.hotkey_mgr.register(self.hotkey, self._on_hotkey_press)
         self.hotkey_mgr.start_listening()
     
     def stop(self) -> None:

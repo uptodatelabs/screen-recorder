@@ -1,5 +1,6 @@
 """Screen capture module for game recording."""
 import mss
+from mss import mss as MSS
 import numpy as np
 from typing import Optional, Tuple
 
@@ -14,7 +15,7 @@ class ScreenCapture:
         Args:
             monitor_index: Which monitor to capture (1=primary, etc.)
         """
-        self.sct = mss()
+        self.sct = MSS()
         self.monitor_index = monitor_index
         self._setup_monitor()
     

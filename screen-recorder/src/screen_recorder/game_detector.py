@@ -9,7 +9,7 @@ class GameDetector:
     
     def __init__(self):
         """Initialize game detector."""
-        self known_games = self._load_game_patterns()
+        self.known_games = self._load_game_patterns()
     
     def _load_game_patterns(self) -> dict:
         """Load game title patterns for identification."""
