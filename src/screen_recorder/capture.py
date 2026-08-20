@@ -73,7 +73,11 @@ class ScreenCapture:
             )
             if cam is None:
                 return False
-            cam.start(target_fps=0)
+            # video_mode=True re-emits the last frame when the desktop does
+            # not change; otherwise no frames are delivered on static screens
+            # and saved clips would only cover the brief moments the screen
+            # actually changed.
+            cam.start(target_fps=0, video_mode=True)
             self._dxcam = cam
             # DXGI always captures the full physical display
             self.monitor = {
