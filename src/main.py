@@ -73,7 +73,7 @@ def main() -> None:
         scale=args.scale,
     )
 
-def on_save_started(frame_count: int) -> None:
+    def on_save_started(frame_count: int) -> None:
         print(f"\nSaving highlight ({frame_count} frames)...")
 
     def on_save_progress(done: int, total: int) -> None:
