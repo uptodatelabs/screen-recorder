@@ -24,7 +24,8 @@ class TestHighlightBuffer:
         buffer = HighlightBuffer(seconds=2, fps=10)
         buffer.start_recording()
         for i in range(30):
-            buffer.add_frame(make_frame(i))
+            # 30 frames spread over 3 seconds; only the last 2s should stay
+            buffer.add_frame(make_frame(i), timestamp=100.0 + i * 0.1)
         assert buffer.frame_count() == 20
 
     def test_discards_frames_when_not_recording(self):

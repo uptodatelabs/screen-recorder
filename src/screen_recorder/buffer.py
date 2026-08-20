@@ -24,6 +24,11 @@ class HighlightBuffer:
     the measured fps, so "the last N seconds" is saved faithfully even
     on slower hardware.
 
+    The buffer keeps frames for ``seconds`` of wall-clock time rather
+    than a fixed frame count: on a fast capture backend (DXGI can
+    deliver hundreds of fps) a frame-count buffer would fill up in a
+    couple of seconds, truncating the clip.
+
     All deque access is protected by a lock because frames are added
     by the capture loop thread while the hotkey listener thread reads
     them when saving a highlight.
@@ -40,7 +45,9 @@ class HighlightBuffer:
 
         Args:
             seconds: Number of seconds of footage to keep in memory.
-            fps: Nominal capture frame rate; used to size the buffer.
+            fps: Nominal capture frame rate; kept for reference and for
+                computing the fallback duration when fewer than 2 frames
+                are buffered.
             jpeg_quality: JPEG quality (0-100) used for in-memory frames.
         """
         if seconds < 1:
@@ -52,13 +59,17 @@ class HighlightBuffer:
         self.nominal_fps = fps
         self.seconds = seconds
         self.jpeg_quality = jpeg_quality
-        self.buffer: deque = deque(maxlen=self.capacity)
+        self.buffer: deque = deque()
         self._is_recording = False
         self._lock = threading.Lock()
 
     def add_frame(self, frame: np.ndarray, timestamp: float = None) -> None:
         """
         Encode and append a frame to the buffer (RGB ndarray).
+
+        Older frames are dropped once the buffered footage is longer than
+        ``seconds`` of wall-clock time, so the buffer always covers the
+        last N seconds regardless of the actual capture frame rate.
 
         Args:
             frame: RGB frame to buffer.
@@ -73,9 +84,15 @@ class HighlightBuffer:
         )
         if not ok:
             return
+        ts = timestamp or time.monotonic()
         with self._lock:
             if self._is_recording:
-                self.buffer.append((timestamp or time.monotonic(), encoded))
+                self.buffer.append((ts, encoded))
+                while (
+                    len(self.buffer) > 1
+                    and (ts - self.buffer[0][0]) >= self.seconds
+                ):
+                    self.buffer.popleft()
 
     def get_frames(self) -> list:
         """Decode and return all buffered frames as BGR ndarrays."""
