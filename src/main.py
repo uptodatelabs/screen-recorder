@@ -73,11 +73,15 @@ def main() -> None:
         scale=args.scale,
     )
 
+    def on_save_started(frame_count: int) -> None:
+        print(f"\nSaving highlight ({frame_count} frames)...")
+
     def on_save(clip_path: str, frame_count: int, duration: float, fps: int) -> None:
-        print(f"\nSaved highlight: {clip_path}")
+        print(f"Saved highlight: {clip_path}")
         print(f"  {frame_count} frames, {duration:.1f}s of gameplay, {fps} fps")
 
     recorder.set_save_callback(on_save)
+    recorder.set_save_started_callback(on_save_started)
     recorder.start()
 
     try:

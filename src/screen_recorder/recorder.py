@@ -48,6 +48,7 @@ class GameRecorder:
         self.hotkey_mgr = HotkeyManager()
         self.is_recording = False
         self.save_callback: Optional[Callable] = None
+        self.save_started_callback: Optional[Callable] = None
         # Captured frames are handed to a worker thread for JPEG encoding so
         # the slow encode overlaps with the next screen grab.
         self._encode_queue: queue.Queue = queue.Queue(maxsize=2)
@@ -56,6 +57,10 @@ class GameRecorder:
     def set_save_callback(self, callback: Callable) -> None:
         """Set a callback ``callback(clip_path, frame_count)`` for saved clips."""
         self.save_callback = callback
+
+    def set_save_started_callback(self, callback: Callable) -> None:
+        """Set a callback called the moment a highlight save is triggered."""
+        self.save_started_callback = callback
 
     def start(self) -> None:
         """Start the recorder: begin buffering and register the hotkey."""
@@ -117,6 +122,8 @@ class GameRecorder:
         encoded_frames = self.buffer.snapshot()
         if not encoded_frames:
             return
+        if self.save_started_callback is not None:
+            self.save_started_callback(len(encoded_frames))
         duration = self.buffer.duration()
         # Play back the clip at the measured capture rate so its length
         # matches the real seconds of gameplay, even on slow hardware.
