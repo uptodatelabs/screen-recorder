@@ -65,6 +65,13 @@ python src/main.py --hotkey "ctrl+shift+f12" --buffer-time 60 --fps 30 --output 
 > rate; the encoder runs in a separate thread so screen grabs are never
 > blocked by encoding. Clips are saved at the measured capture rate, so the
 > video length always matches the real seconds of gameplay.
+>
+> **Note on fullscreen games**: DXGI cannot capture games running in
+> *exclusive* (fullscreen exclusive) mode — the saved clip would show the
+> frozen desktop. Use *borderless windowed* or *windowed* mode in your game
+> so the desktop surface stays visible to the capture API. Highlights are
+> saved in a background thread, so the hotkey stays responsive while the
+> clip is being encoded.
 
 ## Supported Games
 
@@ -190,6 +197,12 @@ python src/main.py --hotkey "ctrl+shift+f12" --buffer-time 60 --fps 30 --output 
 > 움직이면 모니터 주사율만큼 프레임이 전달되며, 인코더가 별도 스레드에서
 > 실행되어 캡처가 인코딩에 막히지 않습니다. 클립은 측정된 캡처 속도로 저장되어
 > 영상 길이가 항상 실제 게임 플레이 시간과 일치합니다.
+>
+> **전체화면 게임 참고**: DXGI는 *독점* 전체화면(전체 화면 전용) 모드의
+> 게임을 캡처할 수 없습니다 — 저장된 클립에는 멈춘 데스크톱이 보일 수
+> 있습니다. 게임을 *테두리 없는 창 모드* 또는 *창 모드*로 실행하면 캡처
+> API에 데스크톱 화면이 계속 노출됩니다. 하이라이트 저장은 백그라운드
+> 스레드에서 진행되므로 인코딩 중에도 핫키가 즉시 응답합니다.
 
 ## 지원 게임
 

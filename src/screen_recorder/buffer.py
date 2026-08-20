@@ -83,6 +83,15 @@ class HighlightBuffer:
             encoded_frames = [enc for _, enc in self.buffer]
         return [cv2.imdecode(enc, cv2.IMREAD_COLOR) for enc in encoded_frames]
 
+    def snapshot(self) -> list:
+        """Return the buffered JPEG frames as a list of encoded arrays.
+
+        The returned list is independent of the buffer, so it stays valid
+        even as new frames are appended and old ones dropped.
+        """
+        with self._lock:
+            return [enc for _, enc in self.buffer]
+
     def duration(self) -> float:
         """
         Return the real-world duration (seconds) of the buffered footage.

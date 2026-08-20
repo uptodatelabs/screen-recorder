@@ -106,19 +106,37 @@ class GameRecorder:
             self.buffer.add_frame(frame, timestamp)
 
     def _on_hotkey_press(self) -> None:
-        """Handle hotkey press: save the buffered highlight as a video clip."""
+        """Handle hotkey press: save the buffered highlight as a video clip.
+
+        The clip is written in a background thread so the hotkey returns
+        immediately; encoding 30s of full-resolution frames takes tens of
+        seconds of CPU time.
+        """
         if self.buffer.frame_count() == 0:
             return
-        frames = self.buffer.get_frames()
-        if not frames:
+        encoded_frames = self.buffer.snapshot()
+        if not encoded_frames:
             return
         duration = self.buffer.duration()
         # Play back the clip at the measured capture rate so its length
         # matches the real seconds of gameplay, even on slow hardware.
         if duration > 0.2:
-            fps = max(1, round(len(frames) / duration))
+            fps = max(1, round(len(encoded_frames) / duration))
         else:
             fps = self.fps
+        saver = threading.Thread(
+            target=self._save_clip_async,
+            args=(encoded_frames, fps, duration),
+            name="clip-saver",
+            daemon=True,
+        )
+        saver.start()
+
+    def _save_clip_async(self, encoded_frames: list, fps: int, duration: float) -> None:
+        """Decode buffered frames and write the highlight clip in the background."""
+        frames = [
+            cv2.imdecode(enc, cv2.IMREAD_COLOR) for enc in encoded_frames
+        ]
         clip_path = self._write_clip(frames, fps)
         if self.save_callback is not None:
             self.save_callback(clip_path, len(frames), duration, fps)
