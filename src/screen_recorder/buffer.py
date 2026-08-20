@@ -1,4 +1,5 @@
 """Circular buffer for game highlight recording."""
+import threading
 from collections import deque
 
 import cv2
@@ -15,6 +16,10 @@ class HighlightBuffer:
     Frames are stored JPEG-compressed in memory to keep the memory
     footprint reasonable (a raw 1080p RGB frame is ~6 MB, a JPEG is
     typically 100-300 KB).
+
+    All deque access is protected by a lock because frames are added
+    by the capture loop thread while the hotkey listener thread reads
+    them when saving a highlight.
     """
 
     def __init__(
@@ -41,36 +46,46 @@ class HighlightBuffer:
         self.jpeg_quality = jpeg_quality
         self.buffer: deque = deque(maxlen=self.capacity)
         self._is_recording = False
+        self._lock = threading.Lock()
 
     def add_frame(self, frame: np.ndarray) -> None:
         """Encode and append a frame to the buffer (RGB ndarray)."""
-        if not self._is_recording or frame is None:
+        if frame is None:
             return
         ok, encoded = cv2.imencode(
             ".jpg",
             cv2.cvtColor(frame, cv2.COLOR_RGB2BGR),
             [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality],
         )
-        if ok:
-            self.buffer.append(encoded)
+        if not ok:
+            return
+        with self._lock:
+            if self._is_recording:
+                self.buffer.append(encoded)
 
     def get_frames(self) -> list:
         """Decode and return all buffered frames as BGR ndarrays."""
-        return [cv2.imdecode(enc, cv2.IMREAD_COLOR) for enc in self.buffer]
+        with self._lock:
+            encoded_frames = list(self.buffer)
+        return [cv2.imdecode(enc, cv2.IMREAD_COLOR) for enc in encoded_frames]
 
     def frame_count(self) -> int:
         """Return the number of frames currently buffered."""
-        return len(self.buffer)
+        with self._lock:
+            return len(self.buffer)
 
     def clear(self) -> None:
         """Clear all buffered frames."""
-        self.buffer.clear()
+        with self._lock:
+            self.buffer.clear()
 
     def start_recording(self) -> None:
         """Start buffering frames."""
-        self._is_recording = True
-        self.clear()
+        with self._lock:
+            self._is_recording = True
+            self.buffer.clear()
 
     def stop_recording(self) -> None:
         """Stop buffering frames."""
-        self._is_recording = False
+        with self._lock:
+            self._is_recording = False

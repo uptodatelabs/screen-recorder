@@ -1,6 +1,7 @@
 """Unit tests for screen_recorder modules."""
 import sys
 import os
+import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -44,6 +45,39 @@ class TestHighlightBuffer:
             HighlightBuffer(seconds=0, fps=10)
         with pytest.raises(ValueError):
             HighlightBuffer(seconds=10, fps=0)
+
+    def test_concurrent_add_and_read(self):
+        """Simulates the capture thread writing while the hotkey thread reads."""
+        buffer = HighlightBuffer(seconds=2, fps=10)
+        buffer.start_recording()
+        stop = threading.Event()
+        errors = []
+
+        def producer():
+            i = 0
+            while not stop.is_set():
+                buffer.add_frame(make_frame(i))
+                i += 1
+
+        def consumer():
+            while not stop.is_set():
+                try:
+                    buffer.get_frames()
+                    buffer.frame_count()
+                except Exception as exc:  # pragma: no cover
+                    errors.append(exc)
+
+        threads = [
+            threading.Thread(target=producer),
+            threading.Thread(target=consumer),
+            threading.Thread(target=consumer),
+        ]
+        for t in threads:
+            t.start()
+        stop.set()
+        for t in threads:
+            t.join()
+        assert errors == []
 
 
 class TestHotkeyManager:
