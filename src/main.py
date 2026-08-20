@@ -2,6 +2,7 @@
 import argparse
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -73,8 +74,8 @@ def main() -> None:
         scale=args.scale,
     )
 
-    def on_save_started(frame_count: int) -> None:
-        print(f"\nSaving highlight ({frame_count} frames)...")
+    def on_save_started(frame_count: int, duration: float) -> None:
+        print(f"\nSaving highlight ({frame_count} frames, {duration:.1f}s of footage)...")
 
     def on_save_progress(done: int, total: int) -> None:
         print(f"  Saving highlight... {done}/{total} frames ({done * 100 // total}%)", end="\r", flush=True)
@@ -88,11 +89,21 @@ def main() -> None:
     recorder.set_save_progress_callback(on_save_progress)
     recorder.start()
 
+    last_status = 0.0
     try:
         # The encoder queue's backpressure paces capture automatically;
         # sleep would only stack on top of the grab time.
         while recorder.is_recording:
             recorder.capture_frame()
+            now = time.monotonic()
+            if now - last_status >= 5.0:
+                last_status = now
+                print(
+                    f"Buffered: {recorder.buffer.duration():.1f}s / "
+                    f"{recorder.buffer.seconds}s of footage "
+                    f"({recorder.buffer.frame_count()} frames)",
+                    flush=True,
+                )
     except KeyboardInterrupt:
         print("\nStopping recorder...")
     finally:
