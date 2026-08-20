@@ -72,9 +72,16 @@ class GameRecorder:
         frames = self.buffer.get_frames()
         if not frames:
             return
-        clip_path = self._write_clip(frames, self.fps)
+        duration = self.buffer.duration()
+        # Play back the clip at the measured capture rate so its length
+        # matches the real seconds of gameplay, even on slow hardware.
+        if duration > 0.2:
+            fps = max(1, round(len(frames) / duration))
+        else:
+            fps = self.fps
+        clip_path = self._write_clip(frames, fps)
         if self.save_callback is not None:
-            self.save_callback(clip_path, len(frames))
+            self.save_callback(clip_path, len(frames), duration, fps)
 
     def _write_clip(self, frames: list, fps: int) -> str:
         """Write the given BGR frames to an MP4 file and return its path."""

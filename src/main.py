@@ -59,16 +59,23 @@ def main() -> None:
         output_dir=args.output,
     )
 
-    def on_save(clip_path: str, frame_count: int) -> None:
-        print(f"\nSaved highlight: {clip_path} ({frame_count} frames)")
+    def on_save(clip_path: str, frame_count: int, duration: float, fps: int) -> None:
+        print(f"\nSaved highlight: {clip_path}")
+        print(f"  {frame_count} frames, {duration:.1f}s of gameplay, {fps} fps")
 
     recorder.set_save_callback(on_save)
     recorder.start()
 
+    interval = 1.0 / args.fps
     try:
         while recorder.is_recording:
+            loop_start = time.perf_counter()
             recorder.capture_frame()
-            time.sleep(recorder._frame_interval)
+            # Sleep only the remaining time in the frame budget so the
+            # capture duration does not stack on top of the sleep.
+            elapsed = time.perf_counter() - loop_start
+            if elapsed < interval:
+                time.sleep(interval - elapsed)
     except KeyboardInterrupt:
         print("\nStopping recorder...")
     finally:

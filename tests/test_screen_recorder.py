@@ -40,6 +40,20 @@ class TestHighlightBuffer:
         assert len(frames) == 1
         assert frames[0].shape == (64, 64, 3)
 
+    def test_duration_reflects_real_time(self):
+        buffer = HighlightBuffer(seconds=5, fps=10)
+        buffer.start_recording()
+        base = 1000.0
+        for i in range(10):
+            buffer.add_frame(make_frame(i), timestamp=base + i * 0.5)
+        assert buffer.frame_count() == 10
+        assert buffer.duration() == pytest.approx(4.5, abs=0.01)
+
+    def test_duration_empty_buffer(self):
+        buffer = HighlightBuffer(seconds=5, fps=10)
+        buffer.start_recording()
+        assert buffer.duration() == 0.0
+
     def test_invalid_arguments(self):
         with pytest.raises(ValueError):
             HighlightBuffer(seconds=0, fps=10)
