@@ -136,9 +136,9 @@ class GameRecorder:
         encoded_frames = self.buffer.snapshot()
         if not encoded_frames:
             return
+        duration = self.buffer.duration()
         if self.save_started_callback is not None:
             self.save_started_callback(len(encoded_frames), duration)
-        duration = self.buffer.duration()
         # Play back the clip at the measured capture rate so its length
         # matches the real seconds of gameplay, even on slow hardware.
         if duration > 0.2:
