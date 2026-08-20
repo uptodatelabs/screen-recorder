@@ -151,3 +151,17 @@ class TestCursorBlend:
         rgba[:, :, :3] = 255
         _blend_into(frame, rgba, 40, 40)
         assert (255, 255, 255) in set(map(tuple, frame.reshape(-1, 3)))
+
+    def test_blend_premultiplied_source(self):
+        """Windows cursor bitmaps are premultiplied; blending must not
+        double-multiply alpha and wash out the cursor."""
+        frame = np.full((100, 100, 3), 12, dtype=np.uint8)
+        rgba = np.zeros((32, 32, 4), dtype=np.uint8)
+        # premultiplied: gray (128,128,128) with alpha 128
+        rgba[5:25, 5:25, :3] = 128
+        rgba[5:25, 5:25, 3] = 128
+        _blend_into(frame, rgba, 40, 40)
+        px = tuple(frame[45, 45])
+        # with premultiplied formula: src + dst*(1-a) = 128 + 12*0.5 = 134
+        # with (buggy) straight formula: src*a + dst*(1-a) = 64 + 6 = 70
+        assert all(130 <= c <= 140 for c in px), f"unexpected pixel {px}"

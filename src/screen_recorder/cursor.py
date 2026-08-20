@@ -105,7 +105,12 @@ def _blend_into(
     cursor_x: int,
     cursor_y: int,
 ) -> None:
-    """Alpha-blend cursor_rgba (HxWx4, 0-255) into frame at (cursor_x, cursor_y)."""
+    """Alpha-blend cursor_rgba (HxWx4, 0-255) into frame at (cursor_x, cursor_y).
+
+    Windows cursor bitmaps from GetIconInfo are stored with premultiplied
+    alpha (color channels already multiplied by alpha), so the
+    premultiplied compositing formula is used: src + dst * (1 - alpha).
+    """
     ch, cw = cursor_rgba.shape[:2]
     fh, fw = frame.shape[:2]
 
@@ -122,7 +127,18 @@ def _blend_into(
     alpha = src[:, :, 3:4].astype(np.float32) / 255.0
     src_rgb = src[:, :, :3].astype(np.float32)
     dst_rgb = dst.astype(np.float32)
-    blended = src_rgb * alpha + dst_rgb * (1.0 - alpha)
+
+    premultiplied = bool(
+        (
+            (src[:, :, 0] <= src[:, :, 3])
+            & (src[:, :, 1] <= src[:, :, 3])
+            & (src[:, :, 2] <= src[:, :, 3])
+        ).all()
+    )
+    if premultiplied:
+        blended = src_rgb + dst_rgb * (1.0 - alpha)
+    else:
+        blended = src_rgb * alpha + dst_rgb * (1.0 - alpha)
     dst[:, :, :] = blended.astype(np.uint8)
 
 

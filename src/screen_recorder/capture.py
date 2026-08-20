@@ -1,10 +1,26 @@
 """Screen capture module for game recording."""
+import ctypes
+import sys
 from typing import Optional, Tuple
 
 import mss
 import numpy as np
 
 from .cursor import draw_cursor
+
+
+def _set_dpi_aware() -> None:
+    """Make the process DPI-aware so screen metrics and cursor
+    coordinates are in physical pixels on scaled displays."""
+    if sys.platform != "win32":
+        return
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
 
 
 class ScreenCapture:
@@ -18,6 +34,7 @@ class ScreenCapture:
             monitor_index: Which monitor to capture (1=primary, etc.)
             capture_cursor: Whether to overlay the mouse cursor on frames.
         """
+        _set_dpi_aware()
         self.sct = mss.mss()
         self.monitor_index = monitor_index
         self.capture_cursor = capture_cursor
